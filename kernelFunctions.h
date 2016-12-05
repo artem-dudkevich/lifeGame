@@ -8,6 +8,7 @@ void lifeIterationKernelFunction(   bool *inputField,
                                     uint2 fieldSize, 
                                     dim3 gridSize, 
                                     dim3 blockSize, 
+                                    size_t sharedMemorySize, 
                                     bool *outputField   );
 
 #endif /* KERNELFUNCTOR_H */

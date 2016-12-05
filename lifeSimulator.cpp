@@ -211,7 +211,7 @@ LifeSimulatorCpu::LifeSimulatorCpu()
                     {
                         continue;
                     }
-					
+                    
                     xCoord = static_cast<int>(x) - 1 + kx;
                     yCoord = static_cast<int>(y) - 1 + ky;
 
@@ -263,8 +263,12 @@ LifeSimulatorGpu::LifeSimulatorGpu():   inputFieldGpu(NULL),
     cudaGetDeviceProperties(&cudaDeviceProps, cudaDevice);
     
     int blockSide = static_cast<int>(floor(sqrt(static_cast<double>(cudaDeviceProps.maxThreadsPerBlock))));
+    blockSide = blockSide/cudaDeviceProps.warpSize*cudaDeviceProps.warpSize;
+    
     blockSize.x = blockSize.y = blockSide;
     gridSize.z = blockSize.z = 1;
+    
+    sharedMemorySize = blockSize.x*blockSize.y*sizeof(bool);
     
     return;   
 }
@@ -309,6 +313,7 @@ LifeSimulatorGpu::LifeSimulatorGpu():   inputFieldGpu(NULL),
                                     fieldSizeU2, 
                                     gridSize, 
                                     blockSize, 
+                                    sharedMemorySize, 
                                     outputFieldGpu  );
     
     if(iterationNumber < maxIterations - 1)
@@ -334,8 +339,8 @@ LifeSimulatorGpu::LifeSimulatorGpu():   inputFieldGpu(NULL),
     {
         LifeSimulator::setFieldSize(width, height);
         
-        gridSize.x = static_cast<int>(ceil(static_cast<double>(fieldSize[0])/blockSize.x));
-        gridSize.y = static_cast<int>(ceil(static_cast<double>(fieldSize[1])/blockSize.y));
+        gridSize.x = static_cast<int>(ceil(static_cast<double>(fieldSize[0])/(blockSize.x - 2)));
+        gridSize.y = static_cast<int>(ceil(static_cast<double>(fieldSize[1])/(blockSize.y - 2)));
         
         if(inputFieldGpu)
         {

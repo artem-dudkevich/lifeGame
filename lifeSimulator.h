@@ -56,6 +56,7 @@ class LifeSimulatorGpu : public LifeSimulator
 protected:
     dim3 gridSize;
     dim3 blockSize;
+    size_t sharedMemorySize;
     
     bool* inputFieldGpu;
     bool* outputFieldGpu;

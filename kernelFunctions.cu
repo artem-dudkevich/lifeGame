@@ -2,17 +2,30 @@
 
 __global__ void lifeIterationKernel(bool *inputField, uint2 fieldSize, bool *outputField)
 {
-    int x = blockIdx.x*blockDim.x + threadIdx.x;
-    int y = blockIdx.y*blockDim.y + threadIdx.y;
+    extern __shared__ bool sharedData[];
     
-    int xCoord = 0;
-    int yCoord = 0;
-    int cellCounter = 0;
-    bool alive = false;
+    int x = blockIdx.x*(blockDim.x - 2) + threadIdx.x - 1;
+    int y = blockIdx.y*(blockDim.y - 2) + threadIdx.y - 1;
     
-    if(x < (int)fieldSize.x && y < (int)fieldSize.y)
+    if( x >= 0 && x < (int)fieldSize.x && 
+        y >= 0 && y < (int)fieldSize.y   )
     {
-        alive = inputField[y*fieldSize.x + x];
+        sharedData[threadIdx.y*blockDim.x + threadIdx.x] = inputField[y*fieldSize.x + x];
+    }
+    else
+    {
+        sharedData[threadIdx.y*blockDim.x + threadIdx.x] = false;
+    }
+    
+    __syncthreads();
+    
+    if( x >= 0 && x < (int)fieldSize.x && 
+        y >= 0 && y < (int)fieldSize.y && 
+        threadIdx.x > 0 && threadIdx.x < blockDim.x - 1 && 
+        threadIdx.y > 0 && threadIdx.y < blockDim.y - 1 )
+    {
+        int cellCounter = 0;
+        bool alive = sharedData[threadIdx.y*blockDim.x + threadIdx.x];
         
         for(int ky = 0; ky < 3; ky++)
         {
@@ -22,17 +35,8 @@ __global__ void lifeIterationKernel(bool *inputField, uint2 fieldSize, bool *out
                 {
                     continue;
                 }
-				
-                xCoord = x - 1 + kx;
-                yCoord = y - 1 + ky;
                 
-                if( xCoord < 0 || xCoord >= fieldSize.x || 
-                    yCoord < 0 || yCoord >= fieldSize.y )
-                {
-                    continue;
-                }
-                
-                if(inputField[yCoord*fieldSize.x + xCoord])
+                if(sharedData[(threadIdx.y - 1 + ky)*blockDim.x + (threadIdx.x - 1 + kx)])
                 {
                     cellCounter++;
                 }
@@ -60,9 +64,10 @@ void lifeIterationKernelFunction(   bool *inputField,
                                     uint2 fieldSize, 
                                     dim3 gridSize, 
                                     dim3 blockSize, 
+                                    size_t sharedMemorySize, 
                                     bool *outputField   )
 {
-    lifeIterationKernel<<<gridSize, blockSize>>>(inputField, fieldSize, outputField);
+    lifeIterationKernel<<<gridSize, blockSize, sharedMemorySize>>>(inputField, fieldSize, outputField);
     cudaDeviceSynchronize();
     
     return;
